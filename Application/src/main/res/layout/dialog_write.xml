@@ -4,6 +4,8 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
     <LinearLayout
+        android:visibility="gone"
+        android:id="@+id/llWrite"
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -39,5 +41,21 @@
                 android:layout_alignParentEnd="true"
                 android:id="@+id/btnWrite" />
         </RelativeLayout>
+    </LinearLayout>
+    <LinearLayout
+        android:id="@+id/llBtn"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/btnRead"
+            android:text="@string/read"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <Button
+            android:id="@+id/btnOpen"
+            android:text="@string/write"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
     </LinearLayout>
 </LinearLayout>

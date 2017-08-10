@@ -245,9 +245,10 @@ public class BLEService extends Service {
             mBluetoothGatt.writeCharacteristic(mChar);
             if (mBluetoothGatt.writeCharacteristic(mChar)){
                 Log.w(TAG, "Failed to write characteristic");
+                mBluetoothGatt.discoverServices();
             }else {
                 Log.w(TAG, "write successful");
-                mBluetoothGatt.discoverServices();
+                Toast.makeText(getApplicationContext(), "Write successful", Toast.LENGTH_SHORT).show();
             }
         }catch (Exception e){
             e.printStackTrace();

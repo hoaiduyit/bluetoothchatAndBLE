@@ -89,24 +89,28 @@
             android:textSize="18sp"/>
     </LinearLayout>
     <LinearLayout
+        android:layout_margin="10dp"
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
-
-        <Button
-            android:id="@+id/btnConnect"
+        <EditText
+            android:id="@+id/txtLine"
+            android:focusable="false"
+            android:enabled="false"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:layout_marginBottom="5dp"/>
+        <TextView
+            android:id="@+id/txtList"
+            android:gravity="center"
+            android:text="@string/services_list"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/connect"/>
-        <Button
-            android:id="@+id/btnDisconnect"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/disconnect"
-            android:visibility="gone"/>
+            android:textSize="16sp"/>
     </LinearLayout>
 
     <ExpandableListView android:id="@+id/listService"
+        android:layout_margin="10dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
 

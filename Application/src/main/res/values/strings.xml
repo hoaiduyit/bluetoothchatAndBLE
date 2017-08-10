@@ -38,5 +38,7 @@
     <string name="connect">Connect</string>
     <string name="disconnect">Disconnect</string>
 
+    <string name="services_list">Services list</string>
+
 
 </resources>
