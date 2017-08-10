@@ -15,6 +15,7 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.util.List;
 import java.util.UUID;
@@ -37,15 +38,15 @@ public class BLEService extends Service {
     private static final int STATE_CONNECTED = 2;
 
     public final static String ACTION_GATT_CONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
+            "com.hoaiduy.btchatandble.ble.ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_DISCONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
+            "com.hoaiduy.btchatandble.ble.ACTION_GATT_DISCONNECTED";
     public final static String ACTION_GATT_SERVICES_DISCOVERED =
-            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
+            "com.hoaiduy.btchatandble.ble.ACTION_GATT_SERVICES_DISCOVERED";
     public final static String ACTION_DATA_AVAILABLE =
-            "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
+            "com.hoaiduy.btchatandble.ble.ACTION_DATA_AVAILABLE";
     public final static String EXTRA_DATA =
-            "com.example.bluetooth.le.EXTRA_DATA";
+            "com.hoaiduy.btchatandble.ble.EXTRA_DATA";
 
     public final static UUID UUID_HEART_RATE_MEASUREMENT =
             UUID.fromString(SampleGattAttributes.HEART_RATE_MEASUREMENT);
@@ -226,15 +227,33 @@ public class BLEService extends Service {
             return;
         }
         mBluetoothGatt.readCharacteristic(characteristic);
+
+        if (mBluetoothGatt.readCharacteristic(characteristic)){
+            Toast.makeText(getApplicationContext(), "No data to read", Toast.LENGTH_LONG).show();
+        }else {
+            Toast.makeText(getApplicationContext(), "read successful", Toast.LENGTH_LONG).show();
+        }
     }
 
-//    public void writeCharacteristic(BluetoothGattCharacteristic characteristic) {
-//        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
-//            Log.w(TAG, "BluetoothAdapter not initialized");
-//            return;
-//        }
-//        mBluetoothGatt.writeCharacteristic(characteristic);
-//    }
+    public void writeCharacteristic(BluetoothGattCharacteristic mChar) {
+        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
+            Log.w(TAG, "BluetoothAdapter not initialized");
+            return;
+        }
+        try{
+
+            mBluetoothGatt.writeCharacteristic(mChar);
+            if (mBluetoothGatt.writeCharacteristic(mChar)){
+                Log.w(TAG, "Failed to write characteristic");
+            }else {
+                Log.w(TAG, "write successful");
+                mBluetoothGatt.discoverServices();
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
 
     public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic,
                                               boolean enabled) {

@@ -1,6 +1,7 @@
 package com.hoaiduy.btchatandble.ble.activity;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
@@ -35,12 +36,14 @@ import java.util.List;
 public class BLEConnectDeviceActivity extends Activity {
     private final static String TAG = BLEConnectDeviceActivity.class.getSimpleName();
 
-    TextView txtName, txtAddress, txtState, txtData;
-    Button btnConnect, btnDisconnect;
+    TextView txtName, txtAddress, txtState, txtData, txtCustom;
+    Button btnConnect, btnDisconnect, btnWrite, btnCancel;
+    private Dialog dialogWrite;
     private String mDeviceName, mDeviceAddress;
     ExpandableListView listService;
     private BLEService mBLE;
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics = new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
+    private ArrayList<ArrayList<BluetoothGattService>> mGattService = new ArrayList<ArrayList<BluetoothGattService>>();
     private boolean mConnected = false;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
 
@@ -49,6 +52,7 @@ public class BLEConnectDeviceActivity extends Activity {
 
     final String LIST_NAME = "NAME";
     final String LIST_UUID = "UUID";
+    final String LIST_PROPERTIES = "PROPERTIES";
     private ProgressDialog dialog;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -81,6 +85,7 @@ public class BLEConnectDeviceActivity extends Activity {
                 invalidateOptionsMenu();
             } else if (BLEService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
+                dialog.dismiss();
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
                 clearUI();
@@ -94,40 +99,72 @@ public class BLEConnectDeviceActivity extends Activity {
 
     private final ExpandableListView.OnChildClickListener servicesListClickListener = new ExpandableListView.OnChildClickListener() {
         @Override
-        public boolean onChildClick(ExpandableListView parent, View v, int groupPosition,
-                                    int childPosition, long id) {
+        public boolean onChildClick(ExpandableListView parent, View v, int groupPosition, int childPosition, long id) {
+
+            txtCustom = (TextView) dialogWrite.findViewById(R.id.txtCustom);
+            btnWrite = (Button) dialogWrite.findViewById(R.id.btnWrite);
+            btnCancel = (Button) dialogWrite.findViewById(R.id.btnCancel);
+        try {
             if (mGattCharacteristics != null) {
                 final BluetoothGattCharacteristic characteristic = mGattCharacteristics.get(groupPosition).get(childPosition);
+                final BluetoothGattService gattService = mGattService.get(groupPosition).get(childPosition);
                 final int charaProp = characteristic.getProperties();
-                if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
+
+                btnCancel.setOnClickListener(v1 -> dialogWrite.dismiss());
+                btnWrite.setOnClickListener(v1 -> {
+                    if (mBLE != null) {
+                        try{
+                            if(characteristic==null) {
+                                Log.w(TAG, "bgc:"+characteristic+"->"+" can not find ! write error");
+                            }
+                            int properties = characteristic.getProperties();
+                            if(((properties&BluetoothGattCharacteristic.PROPERTY_WRITE) == BluetoothGattCharacteristic.PROPERTY_WRITE)
+                                    || ((properties&BluetoothGattCharacteristic.PROPERTY_SIGNED_WRITE) == BluetoothGattCharacteristic.PROPERTY_SIGNED_WRITE)
+                                    || ((properties&BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) == BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE))
+                            {
+                                characteristic.setValue(new byte[] { (byte) 0x01 });
+                                mBLE.writeCharacteristic(characteristic);
+                                Log.w(TAG, "write successful");
+                            }else{
+                                Log.w(TAG, "can not write !");
+                            }
+                        }catch (Exception e){
+                            e.printStackTrace();
+                        }
+                    }
+                });
+
+                if ((charaProp & BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
                     if (mNotifyCharacteristic != null) {
                         mBLE.setCharacteristicNotification(mNotifyCharacteristic, false);
                         mNotifyCharacteristic = null;
                     }
                     mBLE.readCharacteristic(characteristic);
                 }
-//                if ((charaProp | BluetoothGattCharacteristic.PROPERTY_WRITE) > 0) {
-//                    if (mNotifyCharacteristic != null) {
-//                        mBLE.setCharacteristicNotification(mNotifyCharacteristic, false);
-//                        mNotifyCharacteristic = null;
-//                    }
-//                    characteristic.setValue(0x01, android.bluetooth.BluetoothGattCharacteristic.FORMAT_UINT8, 0);
-//                    mBLE.writeCharacteristic(characteristic);
-//                }
-                if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+                if ((charaProp & BluetoothGattCharacteristic.PROPERTY_WRITE) > 0){
+                    if (mNotifyCharacteristic != null) {
+                        mBLE.setCharacteristicNotification(mNotifyCharacteristic, false);
+                        mNotifyCharacteristic = null;
+                    }
+                    dialogWrite.show();
+                }
+                if ((charaProp & BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
                     mNotifyCharacteristic = characteristic;
                     mBLE.setCharacteristicNotification(characteristic, true);
                 }
                 return true;
             }
+        } catch (Exception e){
+            e.printStackTrace();
+        }
             return false;
         }
-
     };
 
     private void clearUI() {
         listService.setAdapter((SimpleExpandableListAdapter) null);
-        txtData.setText("no data");
+        txtData.setText(R.string.no_data);
+        mBLE.close();
     }
 
     @Override
@@ -135,6 +172,9 @@ public class BLEConnectDeviceActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.layout_connect_other_ble);
         dialog = DialogUtils.getLoadingProgressDialog(this);
+
+        dialogWrite = new Dialog(this);
+        dialogWrite.setContentView(R.layout.dialog_write);
 
         Intent intent = getIntent();
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
@@ -210,17 +250,23 @@ public class BLEConnectDeviceActivity extends Activity {
 
     private void displayGattServices(List<BluetoothGattService> gattServices) {
         if (gattServices == null) return;
+
         String uuid = null;
+        String property = null;
+        int properties;
         ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<HashMap<String, String>>();
-        ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData
-                = new ArrayList<ArrayList<HashMap<String, String>>>();
+        ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData = new ArrayList<ArrayList<HashMap<String, String>>>();
+        ArrayList<BluetoothGattService> service = new ArrayList<BluetoothGattService>();
         mGattCharacteristics = new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
+        mGattService = new ArrayList<ArrayList<BluetoothGattService>>();
 
         // Loops through available GATT Services.
         for (BluetoothGattService gattService : gattServices) {
+            service.add(gattService);
             HashMap<String, String> currentServiceData = new HashMap<String, String>();
             uuid = gattService.getUuid().toString();
             currentServiceData.put(LIST_UUID, uuid);
+            currentServiceData.put(LIST_NAME, String.valueOf(gattService.getType()));
             gattServiceData.add(currentServiceData);
 
             ArrayList<HashMap<String, String>> gattCharacteristicGroupData = new ArrayList<HashMap<String, String>>();
@@ -231,10 +277,28 @@ public class BLEConnectDeviceActivity extends Activity {
             for (BluetoothGattCharacteristic gattCharacteristic : gattCharacteristics) {
                 characteristics.add(gattCharacteristic);
                 HashMap<String, String> currentCharaData = new HashMap<String, String>();
-                uuid = gattCharacteristic.getUuid().toString();
+                properties = gattCharacteristic.getProperties();
+                if (properties == BluetoothGattCharacteristic.PROPERTY_READ){
+                    property = "Properties: READ";
+                }
+                if (properties == BluetoothGattCharacteristic.PROPERTY_WRITE){
+                    property = "Properties: WRITE";
+                }
+                if (properties == BluetoothGattCharacteristic.PROPERTY_INDICATE){
+                    property = "Properties: INDICATE";
+                }
+                if (properties == BluetoothGattCharacteristic.PROPERTY_NOTIFY){
+                    property = "Properties: NOTIFY";
+                }
+                if (properties == BluetoothGattCharacteristic.PERMISSION_WRITE) {
+                    property = "Properties: PERMISSION WRITE";
+                }
+                uuid = "UUID: " + gattCharacteristic.getUuid().toString();
                 currentCharaData.put(LIST_UUID, uuid);
+                currentCharaData.put(LIST_PROPERTIES, property);
                 gattCharacteristicGroupData.add(currentCharaData);
             }
+            mGattService.add(service);
             mGattCharacteristics.add(characteristics);
             gattCharacteristicData.add(gattCharacteristicGroupData);
         }
@@ -242,11 +306,11 @@ public class BLEConnectDeviceActivity extends Activity {
         SimpleExpandableListAdapter gattServiceAdapter = new SimpleExpandableListAdapter(
                 this,
                 gattServiceData,
-                android.R.layout.simple_expandable_list_item_2, new String[] {LIST_NAME, LIST_UUID},
-                new int[] { android.R.id.text1, android.R.id.text2 },
-                gattCharacteristicData, android.R.layout.simple_expandable_list_item_2,
-                new String[] {LIST_NAME, LIST_UUID},
-                new int[] { android.R.id.text1, android.R.id.text2 }
+                R.layout.layout_charactisric_item, new String[] {LIST_NAME, LIST_UUID},
+                new int[] { R.id.txtTitle, R.id.txtDetail },
+                gattCharacteristicData, R.layout.layout_characteristic_detail,
+                new String[] {LIST_NAME, LIST_UUID, LIST_PROPERTIES},
+                new int[] { R.id.txtTitle, R.id.txtDetail, R.id.txtProperties }
         );
         listService.setAdapter(gattServiceAdapter);
     }
