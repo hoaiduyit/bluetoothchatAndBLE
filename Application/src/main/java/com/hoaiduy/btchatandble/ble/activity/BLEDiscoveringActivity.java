@@ -7,12 +7,15 @@ import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -24,6 +27,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.example.android.bluetoothchat.R;
+import com.hoaiduy.btchatandble.ble.BLEService;
 
 import java.util.ArrayList;
 
@@ -33,12 +37,17 @@ import java.util.ArrayList;
 
 public class BLEDiscoveringActivity extends ListActivity {
 
+    private final static String TAG = BLEDiscoveringActivity.class.getSimpleName();
+
+    private BLEService mBLE;
+
     private Intent intent;
 
     private LeDeviceListAdapter mLeDeviceListAdapter;
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
     private Handler mHandler;
+    private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
 
     private static final int REQUEST_ENABLE_BT = 1;
     // Stops scanning after 10 seconds.
@@ -68,6 +77,9 @@ public class BLEDiscoveringActivity extends ListActivity {
             }
         }
         intent = new Intent(this, BLEConnectDeviceActivity.class);
+
+        Intent gattServiceIntent = new Intent(this, BLEService.class);
+        bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }
 
     @Override
@@ -132,7 +144,7 @@ public class BLEDiscoveringActivity extends ListActivity {
         // Initializes list view adapter.
         mLeDeviceListAdapter = new LeDeviceListAdapter();
         setListAdapter(mLeDeviceListAdapter);
-        scanLeDevice(true);
+        scanLeDevice(false);
     }
 
     @Override
@@ -158,14 +170,14 @@ public class BLEDiscoveringActivity extends ListActivity {
 
         // Create the result Intent and include the MAC address
 
-        intent.putExtra(BLEConnectDeviceActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
-        intent.putExtra(BLEConnectDeviceActivity.EXTRAS_DEVICE_NAME, device.getName());
-
-        if (mScanning) {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            mScanning = false;
-        }
-        startActivity(intent);
+//        intent.putExtra(BLEConnectDeviceActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+//        intent.putExtra(BLEConnectDeviceActivity.EXTRAS_DEVICE_NAME, device.getName());
+//
+//        if (mScanning) {
+//            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+//            mScanning = false;
+//        }
+//        startActivity(intent);
     }
 
     private void scanLeDevice(final boolean enable) {
@@ -201,6 +213,7 @@ public class BLEDiscoveringActivity extends ListActivity {
             if (deviceName != null && deviceName.length() > 0){
                 if(!mLeDevices.contains(device)) {
                     mLeDevices.add(device);
+                    mDeviceList.add(device);
                 }
             }
         }
@@ -263,6 +276,39 @@ public class BLEDiscoveringActivity extends ListActivity {
                 mLeDeviceListAdapter.addDevice(device);
                 mLeDeviceListAdapter.notifyDataSetChanged();
             });
+            if (rssi > -50){
+                for (BluetoothDevice device1 : mDeviceList){
+                    for (int i = 0; i <= mDeviceList.size(); i++){
+                        device1 = mDeviceList.get(0);
+
+                        intent.putExtra(BLEConnectDeviceActivity.EXTRAS_DEVICE_ADDRESS, device1.getAddress());
+                        intent.putExtra(BLEConnectDeviceActivity.EXTRAS_DEVICE_NAME, device1.getName());
+
+                        if (mScanning) {
+                            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                            mScanning = false;
+                        }
+                        startActivity(intent);
+                    }
+                }
+            }
+        }
+    };
+
+    private final ServiceConnection mServiceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder service) {
+            mBLE = ((BLEService.LocalBinder) service).getService();
+            if (!mBLE.initialize()) {
+                Log.e(TAG, "Unable to initialize Bluetooth");
+                finish();
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            mBLE = null;
         }
     };
 
